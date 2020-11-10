@@ -28,7 +28,8 @@ class Problem:
         self.min_starts = len(self.frags) + 1 + base
         self.max_starts = len(self.frags) + 1 + max(self.frags.keys()) * base + (base - 1)
 
-        self.solver = z3.Solver()
+        self.solver = z3.Optimize()
+        self.n_tasks = z3.Int('n')
 
     def __repr__(self):
         return '\n'.join(repr(f) for f in self.frags.values())
@@ -68,13 +69,12 @@ class Problem:
 
     def encode(self):
         # atomicity
-        #for task in map(lambda x: list(map(lambda y: self.frags[y], x)), self.task_map.values()):
-            #self.solver.add(z3.Or(z3.And([frag.start > self.end_time for frag in task]), z3.And([z3.And(self.begin_time <= frag.start, frag.start <= self.end_time) for frag in task])))
+        for task in map(lambda x: list(map(lambda y: self.frags[y], x)), self.task_map.values()):
+            self.solver.add(z3.Or(z3.And([frag.start > self.end_time for frag in task]), z3.And([z3.And(self.begin_time <= frag.start, frag.start <= self.end_time) for frag in task])))
 
         for i, frag in self.frags.items():
             # fragment needs to start in an interval
-            #self.solver.add(z3.Or(z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()), frag.start > self.end_time))
-            self.solver.add(z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()))
+            self.solver.add(z3.Or(z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()), frag.start > self.end_time))
 
             # dependencies
             for dep in map(lambda x: self.frags[x], frag.deps):
@@ -85,13 +85,21 @@ class Problem:
                 if j == i: continue
                 self.solver.add(z3.Or(frag.start >= frag2.start + frag2.proc_time, frag2.start >= frag.start + frag.proc_time))
 
+        first_frags = list(map(lambda x: self.frags[x[0]], self.task_map.values()))
+        aux = [z3.Int('aux_{}'.format(f.id)) for f in first_frags]
+        for f, v in zip(first_frags, aux):
+            self.solver.add(z3.Or(z3.And(v == 1, f.start <= self.end_time), z3.And(v == 0, f.start >= self.end_time)))
+
+        self.solver.add(self.n_tasks == z3.Sum(aux))
+        self.solver.maximize(self.n_tasks)
+
     def compute(self):
         assert self.solver.check() != z3.unsat, 'UNSAT'
         return self.solver.model()
 
     def solve(self):
         model = self.compute()
-        print(len(self.tasks))
+        print(model[self.n_tasks])
         for task, frags in self.task_map.items():
             start_times = list(map(lambda f: model[self.frags[f].start], frags))
             if len(start_times) > 0:
