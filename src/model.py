@@ -9,7 +9,7 @@ class Fragment:
         self.proc_time = proc
         self.deadline = deadline
         self.deps = deps
-        self.start = z3.Int('s_{}'.format(id))
+        self.start = z3.Int('t_{}__f_{}'.format(tid, id))
 
     def var(self):
         return self.id
@@ -45,6 +45,7 @@ class Task:
 
         self.frags = frags
         self.deps = deps
+        self.exec = z3.Int('t_{}'.format(id))
 
     def __repr__(self):
         return 'Task {} {{ start: {}, proc_time: {}, deadline: {}, fragments: {}, deps: {} }}'.format(

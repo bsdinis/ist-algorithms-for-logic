@@ -19,6 +19,8 @@ do
         reps=1
     fi
 
+    reps=1
+
     for i in {1..$reps};
     do
         tmpfile=.$(basename $input).out.tmp

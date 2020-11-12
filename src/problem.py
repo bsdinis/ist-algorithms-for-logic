@@ -13,13 +13,15 @@ class Problem:
             self.task_map[t.id] = list(range(id, id + len(t.frags)))
             id += len(t.frags)
 
-        self._transitive_task_closure()
+        #self._transitive_task_closure()
 
         self.frags = {
             f.id: f for f in sum(
                 (t.generate_frags(
                     self.task_map) for t in self.tasks),
                 list())}
+
+        #self._transitive_dep_closure()
 
         self.begin_time = min(map(lambda x: x.start_time, self.tasks))
         self.end_time = max(map(lambda x: x.deadline, self.tasks))
@@ -70,11 +72,17 @@ class Problem:
     def encode(self):
         # atomicity
         for task in map(lambda x: list(map(lambda y: self.frags[y], x)), self.task_map.values()):
-            self.solver.add(z3.Or(z3.And([frag.start == self.end_time for frag in task]), z3.And([z3.And(self.begin_time <= frag.start, frag.start <= self.end_time) for frag in task])))
+            self.solver.add(z3.Or( \
+                z3.And([frag.start >= self.end_time for frag in task]), \
+                z3.And([z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()) for frag in task]) \
+            ))
 
         for i, frag in self.frags.items():
             # fragment needs to start in an interval
-            self.solver.add(z3.Or(z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()), frag.start == self.end_time))
+            self.solver.add(z3.Or( \
+                z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()), \
+                frag.start >= self.end_time
+            ))
 
             # dependencies
             for dep in map(lambda x: self.frags[x], frag.deps):
@@ -83,12 +91,15 @@ class Problem:
             # exclusive access
             for j, frag2 in self.frags.items():
                 if j == i: continue
-                self.solver.add(z3.Or(frag.start == self.end_time, frag2.start == self.end_time, z3.Or(frag.start >= frag2.start + frag2.proc_time, frag2.start >= frag.start + frag.proc_time)))
+                self.solver.add(z3.Or( \
+                    frag.start >= frag2.start + frag2.proc_time, \
+                    frag2.start >= frag.start + frag.proc_time
+                ))
 
         first_frags = list(map(lambda x: self.frags[x[0]], self.task_map.values()))
-        aux = [z3.Int('aux_{}'.format(f.id)) for f in first_frags]
+        aux = [self.tasks[f.task_id-1].exec for f in first_frags]
         for f, v in zip(first_frags, aux):
-            self.solver.add(z3.Or(z3.And(v == 1, f.start <= self.end_time), z3.And(v == 0, f.start == self.end_time)))
+            self.solver.add(v == z3.If(f.start < self.end_time, 1, 0))
 
         self.solver.add(self.n_tasks == z3.Sum(aux))
         self.solver.maximize(self.n_tasks)
@@ -102,7 +113,7 @@ class Problem:
         print(model[self.n_tasks])
         for task, frags in self.task_map.items():
             start_times = list(map(lambda f: model[self.frags[f].start], frags))
-            if len(start_times) > 0:
+            if len(start_times) > 0 and all(map(lambda t: int(str(t)) < self.end_time, start_times)):
                 print('{} {}'.format(task, ' '.join(str(i) for i in start_times)))
 
 if __name__ == '__main__':

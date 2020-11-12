@@ -9,3 +9,4 @@ if __name__ == '__main__':
     begin = time.perf_counter()
     p.encode()
     p.solve()
+    print('{} s'.format(time.perf_counter()-begin), file=sys.stderr)
