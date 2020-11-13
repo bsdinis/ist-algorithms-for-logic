@@ -21,6 +21,10 @@ class Problem:
                     self.task_map) for t in self.tasks),
                 list())}
 
+        self.task_frag_map = dict()
+        for t in self.tasks:
+            self.task_frag_map[t.id] = [self.frags[id] for id in self.task_map[t.id]]
+
         #self._transitive_dep_closure()
 
         self.begin_time = min(map(lambda x: x.start_time, self.tasks))
@@ -75,6 +79,18 @@ class Problem:
             self.solver.add(z3.Or( \
                 z3.And([frag.start >= self.end_time for frag in task]), \
                 z3.And([z3.And(frag.min_start() <= frag.start, frag.start < frag.max_start()) for frag in task]) \
+            ))
+        for task in self.tasks:
+            self.solver.add(z3.And( \
+                z3.Implies(task.exec == 1, z3.And( \
+                    [z3.And( \
+                        frag.min_start() <= frag.start, \
+                        frag.start < frag.max_start() \
+                    ) for frag in self.task_frag_map[task.id]] \
+                )), \
+                z3.Implies(task.exec == 0, z3.And( \
+                    [frag.start >= self.end_time for frag in self.task_frag_map[task.id]] \
+                )), \
             ))
 
         for i, frag in self.frags.items():
