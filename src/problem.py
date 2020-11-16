@@ -1,7 +1,7 @@
 from model import *
 
 import z3
-
+import conf
 
 class Problem:
     def __init__(self, file):
@@ -44,7 +44,10 @@ class Problem:
             max(self.frags.keys()) * base + (base - 1)
 
         self.solver = z3.Optimize()
-        self.n_tasks = z3.BitVec('n', int(math.log(len(self.tasks), 2)) + 1)
+        if conf.BIT_VEC == True:
+            self.n_tasks = z3.BitVec('n', int(math.log(len(self.tasks), 2)) + 1)
+        else:
+            self.n_tasks = z3.Int('n')
 
     def __repr__(self):
         return '\n'.join(repr(f) for f in self.frags.values())
@@ -92,38 +95,44 @@ class Problem:
         # atomicity
         for task, frags in map(lambda x: (
                 self.tasks[x[0] - 1], list(map(lambda y: self.frags[y], x[1]))), self.task_map.items()):
-            self.solver.add(z3.Xor(task.exec == 1, task.exec == 0))
-
-            self.solver.add(z3.Implies(
-                z3.And([frag.exec() for frag in frags]), task.exec == 1))
-            self.solver.add(z3.Implies(task.exec == 1,
-                                       z3.And([frag.exec() for frag in frags])))
-
-            self.solver.add(z3.Implies(
-                z3.And([z3.Not(frag.exec()) for frag in frags]), task.exec == 0))
-            self.solver.add(z3.Implies(task.exec == 0,
-                                       z3.And([z3.Not(frag.exec()) for frag in frags])))
+            self.solver.add(z3.Xor(z3.And(task.exec == 1, task.exec_bool == True), z3.And(task.exec == 0, task.exec_bool == False)))
 
         for i, frag in self.frags.items():
             # range
-            self.solver.add(z3.ULT(frag.start(), frag.max_start()))
-            self.solver.add(z3.ULE(frag.min_start(), frag.start()))
+            if conf.BIT_VEC:
+                self.solver.add(z3.ULT(frag.start(), frag.max_start()))
+                self.solver.add(z3.ULE(frag.min_start(), frag.start()))
+            else:
+                self.solver.add(frag.start() < frag.max_start())
+                self.solver.add(frag.min_start() <= frag.start())
 
             # dependencies
             for dep in map(lambda x: self.frags[x], frag.deps):
                 self.solver.add(z3.Implies(frag.exec(), dep.exec()))
-                self.solver.add(
-                    z3.Implies(
-                        frag.exec(),
-                        z3.UGE(frag.start(), dep.start() + dep.proc_time)))
+                if conf.BIT_VEC:
+                    self.solver.add(
+                        z3.Implies(
+                            frag.exec(),
+                            z3.UGE(frag.start(), dep.start() + dep.proc_time)))
+                else:
+                    self.solver.add(
+                        z3.Implies(
+                            frag.exec(),
+                            frag.start() >= dep.start() + dep.proc_time))
 
             # exclusive access
             for j, frag2 in self.frags.items():
                 if j == i: continue
-                self.solver.add(z3.Implies(z3.And(
-                    frag.exec(), frag2.exec()),
-                    z3.Xor(z3.UGE(frag.start(), frag2.start() + frag2.proc_time),
-                           z3.UGE(frag2.start(), frag.start() + frag.proc_time))))
+                if conf.BIT_VEC:
+                    self.solver.add(z3.Implies(z3.And(
+                        frag.exec(), frag2.exec()),
+                        z3.Xor(z3.UGE(frag.start(), frag2.start() + frag2.proc_time),
+                               z3.UGE(frag2.start(), frag.start() + frag.proc_time))))
+                else:
+                    self.solver.add(z3.Implies(z3.And(
+                        frag.exec(), frag2.exec()),
+                        z3.Xor(frag.start() >= frag2.start() + frag2.proc_time,
+                               frag2.start() >= frag.start() + frag.proc_time)))
 
         self.solver.add(self.n_tasks == z3.Sum([x.exec for x in self.tasks]))
         self.solver.maximize(self.n_tasks)

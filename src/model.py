@@ -2,23 +2,26 @@
 
 import z3
 import math
-
+import conf
 
 class Fragment:
-    def __init__(self, tid, id, start, proc, deadline, deps):
+    def __init__(self, tid, id, start, proc, deadline, deps, exec_var):
         self.id = id
         self.task_id = tid
         self.start_time = start
         self.proc_time = proc
         self.deadline = deadline
         self.deps = deps
-        self.exec_var = z3.Bool('t_{}__f_{}_exec'.format(tid, id))
+        self.exec_var = exec_var
 
     def var(self):
         return self.id
 
     def create_var(self, bitwidth):
-        self.start_var = z3.BitVec('t_{}__f_{}_start'.format(self.task_id, self.id), bitwidth)
+        if conf.BIT_VEC:
+            self.start_var = z3.BitVec('t_{}__f_{}_start'.format(self.task_id, self.id), bitwidth)
+        else:
+            self.start_var = z3.Int('t_{}__f_{}_start'.format(self.task_id, self.id))
 
     def start_range(self):
         return range(self.min_start(), self.max_start())
@@ -57,7 +60,12 @@ class Task:
 
         self.frags = frags
         self.deps = deps
-        self.exec = z3.BitVec('t_{}'.format(id), int(math.log(n, 2)) + 1)
+        if conf.BIT_VEC:
+            self.exec = z3.BitVec('t_{}'.format(id), int(math.log(n, 2)) + 1)
+        else:
+            self.exec = z3.Int('t_{}'.format(id))
+
+        self.exec_bool = z3.Bool('t_{}_b'.format(id))
 
     def __repr__(self):
         return 'Task {} {{ start: {}, proc_time: {}, deadline: {}, fragments: {}, deps: {} }}'.format(
@@ -89,6 +97,7 @@ class Task:
                                   start_time,
                                   proc_time,
                                   deadline,
-                                  deps))
+                                  deps,
+                                  self.exec_bool))
 
         return frags
