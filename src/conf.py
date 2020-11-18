@@ -1,1 +1,1 @@
-BIT_VEC = False
+BIT_VEC = True

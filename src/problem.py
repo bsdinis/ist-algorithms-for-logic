@@ -43,7 +43,8 @@ class Problem:
         self.max_starts = len(self.frags) + 1 + \
             max(self.frags.keys()) * base + (base - 1)
 
-        self.solver = z3.Solver()
+        #self.solver = z3.Optimize()
+        self.solver = z3.Optimize()
 
         if conf.BIT_VEC == True:
             self.n_tasks = z3.BitVec('n', int(math.log(len(self.tasks), 2)) + 1)
@@ -136,21 +137,9 @@ class Problem:
                                frag2.start() >= frag.start() + frag.proc_time)))
 
         self.solver.add(self.n_tasks == z3.Sum([x.exec for x in self.tasks]))
-       #self.solver.maximize(self.n_tasks)
+        self.solver.maximize(self.n_tasks)
 
     def compute(self):
-        lower, upper = 0, len(self.tasks)
-        while lower != upper:
-            # print(lower, upper)
-            self.solver.push()
-            med = (upper + lower) // 2
-            self.solver.add(self.n_tasks >= med)
-            if self.solver.check() == z3.unsat:
-                upper = med - 1
-                self.solver.pop()
-            else:
-                lower = med
-
         assert self.solver.check() != z3.unsat, 'UNSAT'
         return self.solver.model()
 
