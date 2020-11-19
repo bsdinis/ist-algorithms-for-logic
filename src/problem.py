@@ -2,6 +2,7 @@ from model import *
 
 import z3
 import conf
+import sys
 
 class Problem:
     def __init__(self, file):
@@ -33,7 +34,8 @@ class Problem:
             self.task_frag_map[t.id] = [self.frags[id]
                                         for id in self.task_map[t.id]]
 
-        self._transitive_dep_closure()
+        if self._find_task_cycles() == True: # no cycles
+            self._transitive_dep_closure()
 
         self.begin_time = min(map(lambda x: x.start_time, self.tasks))
         self.end_time = max(map(lambda x: x.deadline, self.tasks))
@@ -43,7 +45,6 @@ class Problem:
         self.max_starts = len(self.frags) + 1 + \
             max(self.frags.keys()) * base + (base - 1)
 
-        #self.solver = z3.Optimize()
         self.solver = z3.Optimize()
 
         if conf.BIT_VEC == True:
@@ -69,8 +70,11 @@ class Problem:
             deps[t] = ideps
             return deps[t]
 
-        for t in self.tasks:
-            t.deps = find_deps(t)
+        for i, f in self.frags.items():
+            find_deps(i)
+
+        for i, f in self.frags.items():
+            f.deps = find_deps(i)
 
     def _transitive_dep_closure(self):
         # private method
@@ -88,7 +92,69 @@ class Problem:
             return deps[i]
 
         for i, f in self.frags.items():
+            find_deps(i)
+
+        for i, f in self.frags.items():
             f.deps = find_deps(i)
+
+    def _find_task_cycles(self):
+        stack = list()
+        visited = set()
+
+        def visit(self, task):
+            #print(task, file=sys.stderr)
+            #print(task.id, file=sys.stderr)
+            if task.id in visited: return True
+            if task.id in stack:
+                return False
+                #raise Exception("Found cycle: {}\n{}".format(stack + [task.id], '\n'.join(str(self.tasks[x-1]) for x in stack + [task.id])))
+            stack.append(task.id)
+            for tid in task.deps:
+                #print('{} -> {}'.format(task.id, tid), file=sys.stderr)
+                task2 = self.tasks[tid-1]
+                #print(task2, file=sys.stderr)
+                if visit(self, task2) == False:
+                    return False
+            stack.pop()
+            visited.add(task.id)
+            return True
+
+
+        for t in self.tasks:
+            if visit(self, t) == False:
+                return False
+
+        #print('No cycles', file=sys.stderr)
+        return True
+
+    def _find_frag_cycles(self):
+        stack = list()
+        visited = set()
+
+        def visit(self, frag):
+            #print(frag, file=sys.stderr)
+            #print(frag.id, file=sys.stderr)
+            if frag.id in visited: return True
+            if frag.id in stack:
+                return False
+                #raise Exception("Found cycle: {}\n{}".format(stack + [frag.id], '\n'.join(str(self.frags[x]) for x in stack + [frag.id])))
+            stack.append(frag.id)
+            for fid in frag.deps:
+                #print('{} -> {}'.format(frag.id, fid), file=sys.stderr)
+                frag2 = self.frags[fid]
+                #print(frag2, file=sys.stderr)
+                if visit(self, frag2) == False:
+                    return False
+            stack.pop()
+            visited.add(frag.id)
+            return True
+
+        for f in self.frags.values():
+            if visit(self, f) == False:
+                return False
+
+        #print('No cycles', file=sys.stderr)
+        return True
 
     def time_range(self):
         return range(self.begin_time, self.end_time)
