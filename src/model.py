@@ -3,6 +3,8 @@
 import z3
 import math
 import conf
+import sys
+
 
 class Fragment:
     def __init__(self, tid, id, start, proc, deadline, deps, exec_var):
@@ -19,9 +21,13 @@ class Fragment:
 
     def create_var(self, bitwidth):
         if conf.BIT_VEC:
-            self.start_var = z3.BitVec('t_{}__f_{}_start'.format(self.task_id, self.id), bitwidth)
+            self.start_var = z3.BitVec(
+                't_{}__f_{}_start'.format(
+                    self.task_id, self.id), bitwidth)
         else:
-            self.start_var = z3.Int('t_{}__f_{}_start'.format(self.task_id, self.id))
+            self.start_var = z3.Int(
+                't_{}__f_{}_start'.format(
+                    self.task_id, self.id))
 
     def start_range(self):
         return range(self.min_start(), self.max_start())
@@ -45,14 +51,14 @@ class Fragment:
 
 class Task:
     @classmethod
-    def from_line(cls, n, lineno, line):
+    def from_line(cls, lineno, line):
         line = line.strip().split()
         assert len(line) >= 5, 'Task line needs at least 5 elements (had {})\nFormat: <ri> <pi> <di> <nfrags> <frag>\nLine given: '.format(
             len(line), line)
-        return cls(n, lineno, int(line[0]), int(line[1]), int(
+        return cls(lineno, int(line[0]), int(line[1]), int(
             line[2]), [int(t) for t in line[4:]])
 
-    def __init__(self, n, id, r, p, d, frags, deps=None):
+    def __init__(self, id, r, p, d, frags, deps=None):
         self.id = id
         self.start_time = r
         self.proc_time = p
@@ -60,12 +66,14 @@ class Task:
 
         self.frags = frags
         self.deps = deps
-        if conf.BIT_VEC:
-            self.exec = z3.BitVec('t_{}'.format(id), int(math.log(n, 2)) + 1)
-        else:
-            self.exec = z3.Int('t_{}'.format(id))
 
         self.exec_bool = z3.Bool('t_{}_b'.format(id))
+
+    def create_var(self, bitwidth):
+        if conf.BIT_VEC:
+            self.exec = z3.BitVec('t_{}'.format(self.id), bitwidth)
+        else:
+            self.exec = z3.Int('t_{}'.format(self.id))
 
     def __repr__(self):
         return 'Task {} {{ start: {}, proc_time: {}, deadline: {}, fragments: {}, deps: {} }}'.format(
