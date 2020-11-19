@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-for input in $(ls tests/test_*.sms)
+for input in $(ls tests/*.sms)
 do
     reps=10
     echo $input | grep "2" >/dev/null
@@ -23,8 +23,6 @@ do
     then
         reps=1
     fi
-
-    reps=1
 
     for i in {1..$reps};
     do
