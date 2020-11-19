@@ -24,7 +24,7 @@ class Problem:
                     self.task_map) for t in self.tasks),
                 list())}
 
-        bitwidth = int(math.log(max(map(lambda f: len(f.start_range()), self.frags.values())),2)) + 2
+        bitwidth = int(math.log(max(map(lambda f: len(f.start_range()), self.frags.values())),2)) + 3
         for frag in self.frags.values():
             frag.create_var(bitwidth)
 
