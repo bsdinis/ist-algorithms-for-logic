@@ -1,1 +1,3 @@
-src/solver.py
+#!/usr/bin/env sh
+
+src/solver.py $@
