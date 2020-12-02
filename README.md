@@ -1,4 +1,4 @@
-Group 7 - Afonso Ribeiro 86752 - Baltasar Dinis 89416
+Group 9 - Afonso Ribeiro 86752 - Baltasar Dinis 89416
 
 Our solution was develop in python with the use of minizync. (requirments in requirements.txt file)
 
