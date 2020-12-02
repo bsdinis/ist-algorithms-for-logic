@@ -1,18 +1,21 @@
 from model import *
 
-import z3
+import minizinc
 import conf
 import sys
 
 
 class Problem:
     def __init__(self, file):
-        n = int(file.readline().strip())
+        self.solver = minizinc.Solver.lookup('gecode')
+        self.n = int(file.readline().strip())
 
+        self.model = minizinc.Model()
+        self.model.add_string('array[1..{}] of var bool: exec;\n'.format(self.n+1))
         self.tasks = {i:
-                      Task.from_line(
+                      Task.from_line(self.model,
                           i, file.readline()) for i in range(
-                          1, n + 1)}
+                          1, self.n + 1)}
 
         for t in self.tasks.values():
             t.add_deps(file.readline())
@@ -23,6 +26,7 @@ class Problem:
             cycle = self.find_task_cycle()
 
         self.task_map = dict()
+
         id = 1
         for t in self.tasks.values():
             self.task_map[t.id] = list(range(id, id + len(t.frags)))
@@ -35,35 +39,12 @@ class Problem:
                 self.task_map) for t in self.tasks.values()),
             list())}
 
-        bitwidth = int(
-            math.log(max(map(lambda f: len(f.start_range()), self.frags.values())), 2)) + 3
-        for frag in self.frags.values():
-            frag.create_var(bitwidth)
-
         self.task_frag_map = dict()
         for tid in self.tasks:
             self.task_frag_map[tid] = [self.frags[id]
                                        for id in self.task_map[tid]]
-
-        self.begin_time = min(map(lambda x: x.start_time, self.tasks.values()))
-        self.end_time = max(map(lambda x: x.deadline, self.tasks.values()))
-
-        base = self.end_time - self.begin_time
-        self.min_starts = len(self.frags) + 1 + base
-        self.max_starts = len(self.frags) + 1 + \
-            max(self.frags.keys()) * base + (base - 1)
-
         self.transitive_dep_closure()
 
-        task_bitwidth = int(math.log(len(self.tasks), 2)) + 1
-        for t in self.tasks.values():
-            t.create_var(task_bitwidth)
-        if conf.BIT_VEC:
-            self.n_tasks = z3.BitVec('n', task_bitwidth)
-        else:
-            self.n_tasks = z3.Int('n')
-
-        self.solver = z3.Optimize()
 
     def __repr__(self):
         return '\n'.join(repr(f) for f in self.frags.values())
@@ -147,88 +128,53 @@ class Problem:
 
         return None
 
-    def time_range(self):
-        return range(self.begin_time, self.end_time)
-
     def encode(self):
-        # atomicity
-        for task, frags in map(lambda x: (self.tasks[x[0]], list(
-                map(lambda y: self.frags[y], x[1]))), self.task_map.items()):
-            self.solver.add(
-                z3.Xor(
-                    z3.And(
-                        task.exec == 1, task.exec_bool), z3.And(
-                        task.exec == 0, task.exec_bool == False)))
+        for i in range(self.n+1):
+            if i not in self.tasks:
+                self.model.add_string('constraint exec[{}] = false;\n'.format(i))
 
         for i, frag in self.frags.items():
-            # range
-            if conf.BIT_VEC:
-                self.solver.add(z3.ULT(frag.start(), frag.max_start()))
-                self.solver.add(z3.ULE(frag.min_start(), frag.start()))
-            else:
-                self.solver.add(frag.start() < frag.max_start())
-                self.solver.add(frag.min_start() <= frag.start())
-
             # dependencies
             for dep in map(lambda x: self.frags[x], frag.deps):
-                self.solver.add(z3.Implies(frag.exec(), dep.exec()))
-                if conf.BIT_VEC:
-                    self.solver.add(
-                        z3.Implies(
-                            frag.exec(),
-                            z3.UGE(frag.start(), dep.start() + dep.proc_time)))
-                else:
-                    self.solver.add(
-                        z3.Implies(
-                            frag.exec(),
-                            frag.start() >= dep.start() + dep.proc_time))
+                self.model.add_string('constraint if {} then {} endif;\n'.format(frag.exec(), dep.exec()))
+                self.model.add_string('constraint if {} then {} >= {} + {} endif;\n'.format(frag.exec(), frag.start(), dep.start(), dep.proc_time))
+
 
             # exclusive access
             for j, frag2 in self.frags.items():
-                if j == i:
+                if j == i: # or frag2.deadline < frag.min_start() or frag.deadline < frag2.min_start():
                     continue
-                if conf.BIT_VEC:
-                    self.solver.add(
-                        z3.Implies(
-                            z3.And(
-                                frag.exec(),
-                                frag2.exec()),
-                            z3.Xor(
-                                z3.UGE(
-                                    frag.start(),
-                                    frag2.start() +
-                                    frag2.proc_time),
-                                z3.UGE(
-                                    frag2.start(),
-                                    frag.start() +
-                                    frag.proc_time))))
-                else:
-                    self.solver.add(
-                        z3.Implies(
-                            z3.And(
-                                frag.exec(),
-                                frag2.exec()),
-                            z3.Xor(
-                                frag.start() >= frag2.start() +
-                                frag2.proc_time,
-                                frag2.start() >= frag.start() +
-                                frag.proc_time)))
 
-        self.solver.add(self.n_tasks == z3.Sum(
-            [x.exec for x in self.tasks.values()]))
-        self.solver.maximize(self.n_tasks)
+                #print(i, j, frag, frag2)
+                #self.model.add_string('constraint {} != {};\n'.format(frag.start(), frag2.start()))
+                self.model.add_string('constraint if {0} /\\ {1} then ({2} >= {3} + {5}) xor ({3} >= {2} + {4}) endif;\n'.format(
+                    frag.exec(),
+                    frag2.exec(),
+                    frag.start(),
+                    frag2.start(),
+                    frag.proc_time,
+                    frag2.proc_time))
+
+        self.model.add_string('solve maximize sum(i in 0..{})(exec[i]);\n'.format(self.n+1))
 
     def compute(self):
-        assert self.solver.check() != z3.unsat, 'UNSAT'
-        return self.solver.model()
+        self.instance = minizinc.Instance(self.solver, self.model)
+        #self.result = self.instance.solve(processes=96,optimization_level=5)
+        self.result = self.instance.solve()
+        assert self.result.status.has_solution(), 'UNSAT'
+        return self.result
 
     def solve(self):
-        model = self.compute()
-        print(model[self.n_tasks])
+        result = self.compute()
+       #print('---------------------')
+       #print('\n'.join('{} {}'.format(t, ' '.join(str(f.min_start()) for f in frags)) for t, frags in self.task_frag_map.items()))
+       #print('---------------------')
+       #print(''.join(self.model._code_fragments))
+       #print('---------------------')
+        print(result['objective']-1)
         for task, frags in self.task_frag_map.items():
-            if int(str(model[self.tasks[task].exec])) == 1:
-                start_times = map(lambda f: f.min_start() +
-                                  int(str(model[f.start_var])), frags)
+            if result['exec'][task]:
+                start_times = map(lambda f: result[f.start_var], frags)
                 print(
                     '{} {}'.format(
                         task, ' '.join(

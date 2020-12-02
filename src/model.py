@@ -7,27 +7,20 @@ import sys
 
 
 class Fragment:
-    def __init__(self, tid, id, start, proc, deadline, deps, exec_var):
+    def __init__(self, tid, id, start, proc, deadline, deps, model):
         self.id = id
         self.task_id = tid
         self.start_time = start
         self.proc_time = proc
         self.deadline = deadline
         self.deps = deps
-        self.exec_var = exec_var
+        self.model = model
+        self.exec_var = 'exec[{}]'.format(tid)
+        self.start_var = 't_{}__f_{}_start'.format(self.task_id, self.id)
+        self.model.add_string('var {}..{}: {};\n'.format(self.min_start(), self.max_start(), self.start_var))
 
     def var(self):
         return self.id
-
-    def create_var(self, bitwidth):
-        if conf.BIT_VEC:
-            self.start_var = z3.BitVec(
-                't_{}__f_{}_start'.format(
-                    self.task_id, self.id), bitwidth)
-        else:
-            self.start_var = z3.Int(
-                't_{}__f_{}_start'.format(
-                    self.task_id, self.id))
 
     def start_range(self):
         return range(self.min_start(), self.max_start())
@@ -39,7 +32,7 @@ class Fragment:
         return 1 + self.deadline - self.proc_time
 
     def start(self):
-        return self.min_start() + self.start_var
+        return self.start_var
 
     def exec(self):
         return self.exec_var
@@ -51,14 +44,14 @@ class Fragment:
 
 class Task:
     @classmethod
-    def from_line(cls, lineno, line):
+    def from_line(cls, model, lineno, line):
         line = line.strip().split()
         assert len(line) >= 5, 'Task line needs at least 5 elements (had {})\nFormat: <ri> <pi> <di> <nfrags> <frag>\nLine given: '.format(
             len(line), line)
         return cls(lineno, int(line[0]), int(line[1]), int(
-            line[2]), [int(t) for t in line[4:]])
+            line[2]), [int(t) for t in line[4:]], model)
 
-    def __init__(self, id, r, p, d, frags, deps=None):
+    def __init__(self, id, r, p, d, frags, model, deps=None):
         self.id = id
         self.start_time = r
         self.proc_time = p
@@ -67,13 +60,8 @@ class Task:
         self.frags = frags
         self.deps = deps
 
-        self.exec_bool = z3.Bool('t_{}_b'.format(id))
-
-    def create_var(self, bitwidth):
-        if conf.BIT_VEC:
-            self.exec = z3.BitVec('t_{}'.format(self.id), bitwidth)
-        else:
-            self.exec = z3.Int('t_{}'.format(self.id))
+        self.model = model
+        self.exec_var = 'exec[{}]'.format(self.id)
 
     def __repr__(self):
         return 'Task {} {{ start: {}, proc_time: {}, deadline: {}, fragments: {}, deps: {} }}'.format(
@@ -106,6 +94,6 @@ class Task:
                                   proc_time,
                                   deadline,
                                   deps,
-                                  self.exec_bool))
+                                  self.model))
 
         return frags
