@@ -25,7 +25,9 @@ do
     do
         tmpfile=.$(basename $input).out.tmp
         >&2 echo -ne "$input\t\t"
-        ./proj3 < $input > $tmpfile
+        ./runsolver/runsolver -w $tmpfile.loud --input=$input -o $tmpfile ./proj3
+        elapsed=$(grep 'Current children cumulated CPU time (s)' $tmpfile.loud | tail -n 1 | cut -d')' -f 2)
+        echo "$elapsed s"
         ./checker/checker $input $tmpfile | grep 'OK!' > /dev/null
         if [ $? -ne 0 ]
         then
@@ -41,5 +43,6 @@ do
         fi
 
         rm $tmpfile
+        rm $tmpfile.loud
     done
 done
