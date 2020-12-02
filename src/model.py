@@ -15,9 +15,13 @@ class Fragment:
         self.deadline = deadline
         self.deps = deps
         self.model = model
-        self.exec_var = 'exec[{}]'.format(tid)
+        self.exec_var = 't_{}'.format(tid)
         self.start_var = 't_{}__f_{}_start'.format(self.task_id, self.id)
-        self.model.add_string('var {}..{}: {};\n'.format(self.min_start(), self.max_start(), self.start_var))
+        self.model.add_string(
+            'var {}..{}: {};\n'.format(
+                self.min_start(),
+                self.max_start() - 1,
+                self.start_var))
 
     def var(self):
         return self.id
@@ -61,7 +65,8 @@ class Task:
         self.deps = deps
 
         self.model = model
-        self.exec_var = 'exec[{}]'.format(self.id)
+        self.exec_var = 't_{}'.format(self.id)
+        self.model.add_string('var bool: {};\n'.format(self.exec_var))
 
     def __repr__(self):
         return 'Task {} {{ start: {}, proc_time: {}, deadline: {}, fragments: {}, deps: {} }}'.format(

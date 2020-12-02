@@ -11,10 +11,9 @@ class Problem:
         self.n = int(file.readline().strip())
 
         self.model = minizinc.Model()
-        self.model.add_string('array[1..{}] of var bool: exec;\n'.format(self.n+1))
         self.tasks = {i:
                       Task.from_line(self.model,
-                          i, file.readline()) for i in range(
+                                     i, file.readline()) for i in range(
                           1, self.n + 1)}
 
         for t in self.tasks.values():
@@ -44,7 +43,6 @@ class Problem:
             self.task_frag_map[tid] = [self.frags[id]
                                        for id in self.task_map[tid]]
         self.transitive_dep_closure()
-
 
     def __repr__(self):
         return '\n'.join(repr(f) for f in self.frags.values())
@@ -129,51 +127,49 @@ class Problem:
         return None
 
     def encode(self):
-        for i in range(self.n+1):
-            if i not in self.tasks:
-                self.model.add_string('constraint exec[{}] = false;\n'.format(i))
-
         for i, frag in self.frags.items():
             # dependencies
             for dep in map(lambda x: self.frags[x], frag.deps):
-                self.model.add_string('constraint if {} then {} endif;\n'.format(frag.exec(), dep.exec()))
-                self.model.add_string('constraint if {} then {} >= {} + {} endif;\n'.format(frag.exec(), frag.start(), dep.start(), dep.proc_time))
-
+                self.model.add_string(
+                    'constraint if {} then {} endif;\n'.format(
+                        frag.exec(), dep.exec()))
+                self.model.add_string(
+                    'constraint if {} then {} >= {} + {} endif;\n'.format(
+                        frag.exec(), frag.start(), dep.start(), dep.proc_time))
 
             # exclusive access
             for j, frag2 in self.frags.items():
-                if j == i: # or frag2.deadline < frag.min_start() or frag.deadline < frag2.min_start():
+                if j <= i or frag2.deadline < frag.min_start() or frag.deadline < frag2.min_start():
                     continue
 
-                #print(i, j, frag, frag2)
-                #self.model.add_string('constraint {} != {};\n'.format(frag.start(), frag2.start()))
-                self.model.add_string('constraint if {0} /\\ {1} then ({2} >= {3} + {5}) xor ({3} >= {2} + {4}) endif;\n'.format(
-                    frag.exec(),
-                    frag2.exec(),
-                    frag.start(),
-                    frag2.start(),
-                    frag.proc_time,
-                    frag2.proc_time))
+                self.model.add_string(
+                    'constraint if {0} /\\ {1} then ({2} >= {3} + {5}) xor ({3} >= {2} + {4}) endif;\n'.format(
+                        frag.exec(),
+                        frag2.exec(),
+                        frag.start(),
+                        frag2.start(),
+                        frag.proc_time,
+                        frag2.proc_time))
 
-        self.model.add_string('solve maximize sum(i in 0..{})(exec[i]);\n'.format(self.n+1))
+        self.model.add_string('solve maximize {};\n'.format(
+            ' + '.join(t.exec_var for t in self.tasks.values())))
 
     def compute(self):
         self.instance = minizinc.Instance(self.solver, self.model)
-        #self.result = self.instance.solve(processes=96,optimization_level=5)
-        self.result = self.instance.solve()
+        self.result = self.instance.solve(processes=16)
         assert self.result.status.has_solution(), 'UNSAT'
         return self.result
 
     def solve(self):
         result = self.compute()
-       #print('---------------------')
+       # print('---------------------')
        #print('\n'.join('{} {}'.format(t, ' '.join(str(f.min_start()) for f in frags)) for t, frags in self.task_frag_map.items()))
-       #print('---------------------')
-       #print(''.join(self.model._code_fragments))
-       #print('---------------------')
-        print(result['objective']-1)
+       # print('---------------------')
+       # print(''.join(self.model._code_fragments))
+       # print('---------------------')
+        print(result['objective'])
         for task, frags in self.task_frag_map.items():
-            if result['exec'][task]:
+            if result[self.tasks[task].exec_var]:
                 start_times = map(lambda f: result[f.start_var], frags)
                 print(
                     '{} {}'.format(

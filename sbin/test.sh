@@ -2,16 +2,16 @@
 
 for input in $(ls tests/*.sms)
 do
-    reps=10
+    reps=1
     echo $input | grep "2" >/dev/null
     if [ $? -eq 0 ]
     then
-        reps=5
+        reps=1
     fi
     echo $input | grep "3" >/dev/null
     if [ $? -eq 0 ]
     then
-        reps=2
+        reps=1
     fi
     echo $input | grep "4" >/dev/null
     if [ $? -eq 0 ]
@@ -28,7 +28,9 @@ do
     do
         tmpfile=.$(basename $input).out.tmp
         >&2 echo -ne "$input\t\t"
-        ./proj3 < $input > $tmpfile
+        runsolver -w $tmpfile.loud --input=$input -o $tmpfile ./proj3
+        elapsed=$(grep 'Current children cumulated CPU time (s)' $tmpfile.loud | tail -n 1 | cut -d')' -f 2)
+        echo "$elapsed s"
         ./checker/checker $input $tmpfile | grep 'OK!' > /dev/null
         if [ $? -ne 0 ]
         then
@@ -44,5 +46,6 @@ do
         fi
 
         rm $tmpfile
+        rm $tmpfile.loud
     done
 done
