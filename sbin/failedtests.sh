@@ -1,28 +1,7 @@
 #!/usr/bin/env zsh
 
-for input in $(ls tests/*.sms)
+for input in $(ls failedtests/test_1*.sms)
 do
-    reps=10
-    echo $input | grep "2" >/dev/null
-    if [ $? -eq 0 ]
-    then
-        reps=5
-    fi
-    echo $input | grep "3" >/dev/null
-    if [ $? -eq 0 ]
-    then
-        reps=2
-    fi
-    echo $input | grep "4" >/dev/null
-    if [ $? -eq 0 ]
-    then
-        reps=1
-    fi
-    echo $input | grep "5" >/dev/null
-    if [ $? -eq 0 ]
-    then
-        reps=1
-    fi
     reps=1
 
     for i in {1..$reps};
@@ -44,6 +23,6 @@ do
             exit -1
         fi
 
-        rm $tmpfile
+        #rm $tmpfile
     done
 done

@@ -35,8 +35,9 @@ class Problem:
                 self.task_map) for t in self.tasks.values()),
             list())}
 
+        self.end_time = max(map(lambda x: x.deadline, self.tasks.values()))
         bitwidth = int(
-            math.log(max(map(lambda f: len(f.start_range()), self.frags.values())), 2)) + 3
+            math.log(self.end_time + 1, 2)) + 2
         for frag in self.frags.values():
             frag.create_var(bitwidth)
 
@@ -46,7 +47,6 @@ class Problem:
                                        for id in self.task_map[tid]]
 
         self.begin_time = min(map(lambda x: x.start_time, self.tasks.values()))
-        self.end_time = max(map(lambda x: x.deadline, self.tasks.values()))
 
         base = self.end_time - self.begin_time
         self.min_starts = len(self.frags) + 1 + base
