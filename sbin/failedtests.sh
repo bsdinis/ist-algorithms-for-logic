@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-for input in $(ls failedtests/test_100_200_2*.sms)
+for input in  "failedtests/test_40_120_23_7_3_120_129.sms" "failedtests/test_75_150_17_7_2_150_774.sms" "failedtests/test_100_200_11_5_3_200_186.sms" "failedtests/test_100_300_17_5_3_300_471.sms" "failedtests/test_100_200_11_7_2_200_192.sms" "failedtests/test_100_300_23_5_3_300_548.sms" "failedtests/test_100_200_23_7_2_200_323.sms"
 do
     reps=1
 
