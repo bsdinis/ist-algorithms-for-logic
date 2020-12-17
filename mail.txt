@@ -1,31 +1,18 @@
 Boa noite,
 
-Testado num portatil com 7.68GB de ram testamos os ficheiros que o professor forneceu e chegamos as seguintes conclusoes:
+No seguimento da nossa discussão do projeto, analisamos o que estava a acontecer e chegámos às seguintes conclusões.
+Testamos os ficheiros que o professor forneceu num portátil com 7.68GB de RAM.
 
-- O professor indicou que o nossa solucao nao era correta, mas em nenhum dos teste que o professor enviou retornamos sequer ao
-fim de 1h30. A unica coisa que vemos que possa estar a acontecer e que a nossa solucao quando recebe o sinal SIGINT devolvemos
-a melhor solucao a que o z3 ja chegou, sendo esta subotima. Isto nao ocorre por desenho, acho que e devido a como a interface
-de python para o z3 esta implementada, e o sinal tratado pelo z3 e nao pelo python diretamente.
+- O professor indicou que o nossa solução não era correta, mas em nenhum dos teste que o professor enviou retornamos sequer ao fim de 1h30. A única coisa que achamos que possa estar a acontecer é que a nossa solução quando recebe o sinal SIGINT devolve a melhor solução a que o z3 já encontrou, que pode ser subótima. Isto não ocorre por desenho, mas devido a como a interface de python para o z3 esta implementada (o sinal parece ser tratado pelo z3 e não pelo python diretamente).
 
-- Os testes test_40_120_23_7_3_120_129.sms, test_75_150_17_7_2_150_774.sms e test_100_200_11_5_3_200_186.sms
-ao fim de 30 minutos(real time) chegam a solucao otima.
+- Os testes test_40_120_23_7_3_120_129.sms, test_75_150_17_7_2_150_774.sms e test_100_200_11_5_3_200_186.sms ao fim de 30 minutos(real time) chegam a solução ótima.
 
-- O teste test_40_120_23_7_3_120_129.sms usa no maximo 41% de ram (3.15GB).
-- O teste test_75_150_17_7_2_150_774.sms usa no maximo 51% de ram (3.92GB).
-- O teste test_100_200_11_5_3_200_186.sms usa no maximo 44% de ram (3.4GB), mas por acaso neste teste estava a olhar
-quando o processo terminou e o uso de ram disparou para os 66% por 1s, o que nos leva a querer que o SIGINT e' enviado
-quando o processo esta a terminar, pois chegou a solucao otima, e e morto antes de dar print nao acontecendo o que aconte
-quando chegam ao limite de tempo e o z3 ainda esta a executar, ficando o output vazio.
+- O teste test_40_120_23_7_3_120_129.sms usa no máximo 41% de RAM (3.15GB).
+- O teste test_75_150_17_7_2_150_774.sms usa no máximo 51% de RAM (3.92GB).
+- O teste test_100_200_11_5_3_200_186.sms usa no máximo 44% de RAM (3.4GB). Por acaso neste teste estava a olhar quando o processo terminou e o uso de RAM disparou para os 66% por 1s, o que nos leva a querer que o SIGINT é enviado quando o processo esta a terminar, pois chegou a solução ótima, e é morto antes de dar print não acontecendo o que acontece quando chegam ao limite de tempo e o z3 ainda esta a executar, ficando o output vazio.
 
-- Descobrimos tambem que o uso enorme de ram vem simplesmente do facto que para a nossa solucao usamos 'bitvecs' em vez de 'ints'.
-Que como nos temos as duas opcoes feitas, basta alterar a flag no ficheiro 'src/conf.py', conseguimos testar com 'ints' fazendo
-com que o teste so utilize 2% de ram. Escolhemos usar 'bitvecs' pois obeservamos um melhoramento de performance de 10x ou mais
-a velocidade de resolucao nos testes maiores (t3.sms e t4_d.sms do tests.zip).
+- Descobrimos também que o uso enorme de RAM advém simplesmente do facto que para a nossa solução usamos 'bitvecs' em vez de 'ints'.  Como nós temos ambas as opções implementadas, basta alterar a flag no ficheiro 'src/conf.py' para trocar. Os nossos testes com 'ints' fazem com a utilização da RAM baixe para os 4%. No nosso projeto, escolhemos usar 'bitvecs' pois observámos um speedup de 100x ou mais na velocidade de resolução nos testes maiores (t3.sms e t4_d.sms do tests.zip) comparado com os tempos do prof. Daniel (e os nossos testes com 'ints').
 
-
-    Quando falamos com o professor indicou que o limite existia simplesmente porque se a execucao chegasse aos 4GB seria
-porque existiria um erro na codificacao sendo que no nosso caso isso nao acontece, relendo o enunciado tambem verificamos que
-nao ha nenhuma mencao sobre o limite de memoria a usar so o sobre a duracao, nunca tivemos esse aspeto em conta, tambem porque
-nao sabiamos que esta representacao usava tanta mais memoria (pelo contrario),
+Quando falei com o professor indicou que o limite existia simplesmente porque se a execução chegasse aos 4GB seria porque existiria um erro na codificação. Achamos que no nosso caso isso não se verifica. Para além disso, relendo o enunciado também verificamos que não há nenhuma menção sobre o limite de memória a usar só sobre a duração, pelo que nunca tivemos esse aspeto em conta. Para além disso, não estávamos cientes que os BitVecs aumentariam o uso de memória desta forma descabida (pelo contrário, achávamos que era mais eficiente).
 
 Obrigado.
